@@ -178,6 +178,9 @@ function createParticles(x, y, color, amount = 10) {
 // Update and draw
 function update() {
     if (gameStarted && !gameOver) {
+        // Update player movement
+        updatePlayerMovement();
+        
         // Move ball
         ballX += ballSpeedX;
         ballY += ballSpeedY;
@@ -432,55 +435,125 @@ function handleMouse(e) {
     }
 }
 
+// Touch control variables
+let lastTouchY = 0;
+let touchStartY = 0;
+let lastTapTime = 0;
+let touchZone = null;
+
 function handleTouch(e) {
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
     
-    // Handle game start/restart with tap
     if (e.type === 'touchstart') {
+        // Handle game start/restart with tap
         if (!gameStarted || gameOver) {
             handleClick();
             return;
         }
+        
+        // Double tap detection for speed boost
+        const currentTime = Date.now();
+        if (currentTime - lastTapTime < 300) { // 300ms between taps
+            isSpeedBoost = true;
+        }
+        lastTapTime = currentTime;
+        
+        // Store initial touch position
+        touchStartY = e.touches[0].clientY;
+        lastTouchY = touchStartY;
+        
+        // Determine touch zone (top/middle/bottom of screen)
+        const touchX = e.touches[0].clientX - rect.left;
+        const touchY = e.touches[0].clientY - rect.top;
+        
+        // Split screen into vertical thirds
+        const zoneSize = canvas.height / 3;
+        if (touchY < zoneSize) {
+            touchZone = 'top';
+        } else if (touchY < zoneSize * 2) {
+            touchZone = 'middle';
+        } else {
+            touchZone = 'bottom';
+        }
     }
     
     if (e.touches.length > 0) {
-        // For better mobile control, use relative movement
-        const touchY = e.touches[0].clientY - rect.top;
-        const targetY = touchY - paddleHeight/2;
+        const currentTouchY = e.touches[0].clientY;
+        const deltaY = currentTouchY - lastTouchY;
         
-        // Smoother movement for touch
-        playerY += (targetY - playerY) * 0.3;
-        playerY = Math.min(Math.max(playerY, 0), canvas.height - paddleHeight);
-        
-        // Add speed boost on double tap
-        if (e.type === 'touchstart' && e.touches.length === 2) {
-            isSpeedBoost = true;
+        // Apply movement based on touch zone and movement
+        if (touchZone === 'middle') {
+            // Direct positioning in middle zone
+            const touchY = currentTouchY - rect.top;
+            playerY = touchY - paddleHeight/2;
+        } else {
+            // Relative movement in top/bottom zones
+            const sensitivity = 1.5; // Adjust this for faster/slower movement
+            playerY += deltaY * sensitivity;
         }
+        
+        // Keep paddle within bounds
+        playerY = Math.min(Math.max(playerY, 0), canvas.height - paddleHeight);
+        lastTouchY = currentTouchY;
     }
 }
 
 function handleTouchEnd(e) {
     if (e.touches.length === 0) {
         isSpeedBoost = false;
+        touchZone = null;
     }
 }
 
+// Track key states
+const keys = {
+    ArrowUp: false,
+    ArrowDown: false,
+    w: false,
+    s: false,
+    space: false
+};
+
 function handleKeydown(e) {
-    const speed = 15;
     if (e.key === 'ArrowUp' || e.key === 'w') {
-        playerY = Math.max(playerY - speed, 0);
+        keys[e.key] = true;
     } else if (e.key === 'ArrowDown' || e.key === 's') {
-        playerY = Math.min(playerY + speed, canvas.height - paddleHeight);
+        keys[e.key] = true;
     } else if (e.key === ' ') {
+        keys.space = true;
         isSpeedBoost = true;
         if (!gameStarted) handleClick();
     }
 }
 
 function handleKeyup(e) {
-    if (e.key === ' ') {
+    if (e.key === 'ArrowUp' || e.key === 'w') {
+        keys[e.key] = false;
+    } else if (e.key === 'ArrowDown' || e.key === 's') {
+        keys[e.key] = false;
+    } else if (e.key === ' ') {
+        keys.space = false;
         isSpeedBoost = false;
+    }
+}
+
+// Handle keyboard movement in update function
+function updatePlayerMovement() {
+    if (!isTouchDevice) {
+        const speed = 12; // Base speed
+        const boost = keys.space ? 1.5 : 1; // Speed multiplier when spacebar is held
+        
+        // Apply movement based on key states
+        if (keys.ArrowUp || keys.w) {
+            playerY -= speed * boost;
+        }
+        if (keys.ArrowDown || keys.s) {
+            playerY += speed * boost;
+        }
+        
+        // Keep paddle within bounds
+        playerY = Math.max(0, Math.min(canvas.height - paddleHeight, playerY));
     }
 }
 
