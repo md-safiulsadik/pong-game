@@ -178,14 +178,51 @@ function createParticles(x, y, color, amount = 10) {
 // Update and draw
 function update() {
     if (gameStarted && !gameOver) {
+        // Update player movement
+        updatePlayerMovement();
+        
         // Move ball
         ballX += ballSpeedX;
         ballY += ballSpeedY;
+          // Smarter AI movement with prediction and mistakes
+        if (ballSpeedX > 0) { // Ball is moving towards AI
+            // Update prediction error periodically
+            if (Math.abs(ballY - aiLastBallY) > 50) {
+                aiPredictionError = (Math.random() - 0.5) * paddleHeight * (1 - aiDifficulty);
+                aiLastBallY = ballY;
+            }
+            
+            // Predict ball position with some error
+            const distanceToAI = aiX - ballX;
+            const timeToAI = distanceToAI / ballSpeedX;
+            const predictedY = ballY + ballSpeedY * timeToAI + aiPredictionError;
+            
+            // Add some reaction delay
+            if (aiReactionDelay <= 0) {
+                aiTargetY = predictedY - paddleHeight/2;
+                // Occasionally make wrong moves
+                if (Math.random() < 0.1 * (1 - aiDifficulty)) {
+                    aiTargetY += (Math.random() - 0.5) * paddleHeight;
+                }
+            } else {
+                aiReactionDelay--;
+            }
+        } else {
+            // Return to center when ball is moving away
+            aiTargetY = canvas.height/2 - paddleHeight/2;
+        }
         
-        // AI movement with smoothing
-        const aiSpeed = 5;
-        const aiTarget = ballY - paddleHeight/2 + ballSize/2;
-        aiY += (aiTarget - aiY) * 0.1;
+        // Smooth movement with variable speed
+        const aiMaxSpeed = 5 + (ballSpeedX > 0 ? 3 : 0); // Faster when ball approaches
+        const aiCurrentSpeed = Math.min(aiMaxSpeed, Math.abs(aiTargetY - aiY)) * aiDifficulty;
+        
+        if (aiY < aiTargetY) {
+            aiY += aiCurrentSpeed;
+        } else if (aiY > aiTargetY) {
+            aiY -= aiCurrentSpeed;
+        }
+        
+        // Ensure paddle stays within bounds
         aiY = Math.max(0, Math.min(canvas.height - paddleHeight, aiY));
         
         // Ball collision with top and bottom
@@ -337,12 +374,32 @@ function drawGameOverScreen() {
     ctx.shadowBlur = 0;
 }
 
+// Adjust AI difficulty based on score difference
+function adjustAIDifficulty() {
+    const scoreDiff = aiScore - playerScore;
+    if (scoreDiff >= 3) {
+        // Make AI easier if it's winning by a lot
+        aiDifficulty = Math.max(0.6, aiDifficulty - 0.05);
+    } else if (scoreDiff <= -3) {
+        // Make AI harder if it's losing by a lot
+        aiDifficulty = Math.min(0.95, aiDifficulty + 0.05);
+    }
+}
+
 function resetBall() {
     ballX = canvas.width/2 - ballSize/2;
     ballY = canvas.height/2 - ballSize/2;
     ballSpeedX = 0;
     ballSpeedY = 0;
     ballTrail = [];
+    
+    // Reset AI prediction variables
+    aiPredictionError = 0;
+    aiLastBallY = ballY;
+    aiReactionDelay = Math.floor(Math.random() * 10); // Random reaction delay
+    
+    // Adjust AI difficulty
+    adjustAIDifficulty();
     
     // Immediate start for first game
     if (!gameStarted) {
@@ -360,6 +417,13 @@ function resetBall() {
     }, 1000);
 }
 
+// Game difficulty variables
+let aiDifficulty = 0.8; // Percentage of perfect play (0.6 to 1.0)
+let aiReactionDelay = 0; // Frames of delay before AI reacts
+let aiTargetY = 0;
+let aiLastBallY = 0;
+let aiPredictionError = 0;
+
 // Controls
 function handleMouse(e) {
     if (!isTouchDevice) {
@@ -371,32 +435,125 @@ function handleMouse(e) {
     }
 }
 
+// Touch control variables
+let lastTouchY = 0;
+let touchStartY = 0;
+let lastTapTime = 0;
+let touchZone = null;
+
 function handleTouch(e) {
     e.preventDefault();
-    if (e.touches.length > 0) {
-        const rect = canvas.getBoundingClientRect();
+    const rect = canvas.getBoundingClientRect();
+    
+    if (e.type === 'touchstart') {
+        // Handle game start/restart with tap
+        if (!gameStarted || gameOver) {
+            handleClick();
+            return;
+        }
+        
+        // Double tap detection for speed boost
+        const currentTime = Date.now();
+        if (currentTime - lastTapTime < 300) { // 300ms between taps
+            isSpeedBoost = true;
+        }
+        lastTapTime = currentTime;
+        
+        // Store initial touch position
+        touchStartY = e.touches[0].clientY;
+        lastTouchY = touchStartY;
+        
+        // Determine touch zone (top/middle/bottom of screen)
+        const touchX = e.touches[0].clientX - rect.left;
         const touchY = e.touches[0].clientY - rect.top;
-        const targetY = touchY - paddleHeight/2;
-        playerY += (targetY - playerY) * 0.2; // Slightly faster for touch
+        
+        // Split screen into vertical thirds
+        const zoneSize = canvas.height / 3;
+        if (touchY < zoneSize) {
+            touchZone = 'top';
+        } else if (touchY < zoneSize * 2) {
+            touchZone = 'middle';
+        } else {
+            touchZone = 'bottom';
+        }
+    }
+    
+    if (e.touches.length > 0) {
+        const currentTouchY = e.touches[0].clientY;
+        const deltaY = currentTouchY - lastTouchY;
+        
+        // Apply movement based on touch zone and movement
+        if (touchZone === 'middle') {
+            // Direct positioning in middle zone
+            const touchY = currentTouchY - rect.top;
+            playerY = touchY - paddleHeight/2;
+        } else {
+            // Relative movement in top/bottom zones
+            const sensitivity = 1.5; // Adjust this for faster/slower movement
+            playerY += deltaY * sensitivity;
+        }
+        
+        // Keep paddle within bounds
         playerY = Math.min(Math.max(playerY, 0), canvas.height - paddleHeight);
+        lastTouchY = currentTouchY;
     }
 }
 
+function handleTouchEnd(e) {
+    if (e.touches.length === 0) {
+        isSpeedBoost = false;
+        touchZone = null;
+    }
+}
+
+// Track key states
+const keys = {
+    ArrowUp: false,
+    ArrowDown: false,
+    w: false,
+    s: false,
+    space: false
+};
+
 function handleKeydown(e) {
-    const speed = 15;
     if (e.key === 'ArrowUp' || e.key === 'w') {
-        playerY = Math.max(playerY - speed, 0);
+        keys[e.key] = true;
     } else if (e.key === 'ArrowDown' || e.key === 's') {
-        playerY = Math.min(playerY + speed, canvas.height - paddleHeight);
+        keys[e.key] = true;
     } else if (e.key === ' ') {
+        keys.space = true;
         isSpeedBoost = true;
         if (!gameStarted) handleClick();
     }
 }
 
 function handleKeyup(e) {
-    if (e.key === ' ') {
+    if (e.key === 'ArrowUp' || e.key === 'w') {
+        keys[e.key] = false;
+    } else if (e.key === 'ArrowDown' || e.key === 's') {
+        keys[e.key] = false;
+    } else if (e.key === ' ') {
+        keys.space = false;
         isSpeedBoost = false;
+    }
+}
+
+// Handle keyboard movement in update function
+function updatePlayerMovement() {
+    if (!isTouchDevice) {
+        const speed = 12; // Base speed
+        const boost = keys.space ? 1.5 : 1; // Speed multiplier when spacebar is held
+        
+        // Apply movement based on key states
+        if (keys.ArrowUp || keys.w) {
+            playerY -= speed * boost;
+        }
+        if (keys.ArrowDown || keys.s) {
+            playerY += speed * boost;
+        }
+        
+        // Keep paddle within bounds
+        playerY = Math.max(0, Math.min(canvas.height - paddleHeight, playerY));
     }
 }
 
@@ -413,12 +570,24 @@ function handleClick() {
 }
 
 // Initialize event listeners
-canvas.addEventListener('mousemove', handleMouse);
-canvas.addEventListener('touchstart', handleTouch);
-canvas.addEventListener('touchmove', handleTouch);
-document.addEventListener('keydown', handleKeydown);
-document.addEventListener('keyup', handleKeyup);
-canvas.addEventListener('click', handleClick);
+if (!isTouchDevice) {
+    // Mouse and keyboard controls for desktop
+    canvas.addEventListener('mousemove', handleMouse);
+    document.addEventListener('keydown', handleKeydown);
+    document.addEventListener('keyup', handleKeyup);
+    canvas.addEventListener('click', handleClick);
+} else {
+    // Touch controls for mobile
+    canvas.addEventListener('touchstart', handleTouch, { passive: false });
+    canvas.addEventListener('touchmove', handleTouch, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd);
+    canvas.addEventListener('touchcancel', handleTouchEnd);
+    
+    // Prevent scrolling when touching the canvas
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+    }, { passive: false });
+}
 
 // Game loop
 function gameLoop() {
