@@ -53,6 +53,27 @@ window.addEventListener('load', () => {
     document.addEventListener('keyup', onKeyUp);
     canvas.addEventListener('click', onClick);
 
+    // Touch controls for mobile
+    const touchControls = document.getElementById('touch-controls');
+    const btnUp = document.getElementById('btn-up');
+    const btnDown = document.getElementById('btn-down');
+    let isPaused = false;
+
+    function isMobile() {
+        return /Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+    }
+    if (isMobile()) {
+        touchControls.style.display = 'flex';
+        btnUp.addEventListener('touchstart', () => { handleKeydown({ key: 'ArrowUp' }); });
+        btnDown.addEventListener('touchstart', () => { handleKeydown({ key: 'ArrowDown' }); });
+        btnUp.addEventListener('touchend', () => { handleKeyup({ key: 'ArrowUp' }); });
+        btnDown.addEventListener('touchend', () => { handleKeyup({ key: 'ArrowDown' }); });
+    }
+
+    // Pause/resume on window blur/focus
+    window.addEventListener('blur', () => { isPaused = true; });
+    window.addEventListener('focus', () => { isPaused = false; });
+
     // Responsive resizing
     function resizeCanvas() {
         // Set canvas size to fit parent or window
@@ -70,14 +91,11 @@ window.addEventListener('load', () => {
 
     // Start game loop
     function gameLoop() {
-        // Update game state
-        updateGame();
-        
-        // Clear canvas and draw game
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawGame();
-        
-        // Continue loop
+        if (!isPaused) {
+            updateGame();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGame();
+        }
         requestAnimationFrame(gameLoop);
     }
 
