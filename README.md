@@ -39,7 +39,13 @@
 
 ## 📷 Screenshots
 
-![Pong Screenshot](https://user-images.githubusercontent.com/placeholder/pong-screenshot.png)
+![Pong Screenshot](images\ss.png)
+
+<!-- To add your own screenshot:
+1. Take a screenshot of your game running.
+2. Save it as 'pong-screenshot.png' in an 'assets' folder in your project.
+3. Commit and push the image to your repository.
+-->
 
 ---
 
