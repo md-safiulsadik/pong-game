@@ -2,17 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Simple Pong Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0">
+    <title>Neon Pong Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>NEON PONG</h1>
     <div class="game-container">
-        <div class="canvas-wrapper">
-            <canvas id="pong"></canvas>
-        </div>
+        <canvas id="pong" width="800" height="600"></canvas>
     </div>
-    <script src="game.js"></script>
+    <script type="module" src="main.js"></script>
 </body>
 </html>

@@ -1,3 +1,10 @@
+/**
+ * LEGACY FILE: game.js
+ * This file contains a monolithic implementation of Pong (logic, rendering, and events in one file).
+ * It is NOT used by the current modular codebase (logic.js, ui.js, main.js).
+ * Recommended: Use the modular files for all new development and maintenance.
+ */
+
 // Get canvas and context
 const canvas = document.getElementById('pong');
 const ctx = canvas.getContext('2d');
@@ -72,6 +79,11 @@ function initCanvas() {
 // Handle window resize
 window.addEventListener('resize', () => {
     initCanvas();
+});
+
+// Also listen for orientation change to resize canvas
+window.addEventListener('orientationchange', () => {
+    setTimeout(initCanvas, 300);
 });
 
 // Particle system
@@ -367,17 +379,6 @@ function handleMouse(e) {
         const mouseY = e.clientY - rect.top;
         const targetY = mouseY - paddleHeight/2;
         playerY += (targetY - playerY) * 0.15; // Smooth movement
-        playerY = Math.min(Math.max(playerY, 0), canvas.height - paddleHeight);
-    }
-}
-
-function handleTouch(e) {
-    e.preventDefault();
-    if (e.touches.length > 0) {
-        const rect = canvas.getBoundingClientRect();
-        const touchY = e.touches[0].clientY - rect.top;
-        const targetY = touchY - paddleHeight/2;
-        playerY += (targetY - playerY) * 0.2; // Slightly faster for touch
         playerY = Math.min(Math.max(playerY, 0), canvas.height - paddleHeight);
     }
 }
