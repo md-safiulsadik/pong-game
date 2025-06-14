@@ -39,7 +39,7 @@
 
 ## 📷 Screenshots
 
-![Pong Screenshot](images\ss.png)
+![Pong Screenshot](assets/pong-screenshot.png)
 
 <!-- To add your own screenshot:
 1. Take a screenshot of your game running.
